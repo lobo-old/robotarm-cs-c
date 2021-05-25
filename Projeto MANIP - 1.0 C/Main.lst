@@ -1,0 +1,1088 @@
+CCS PCH C Compiler, Version 4.140, 32071               30-mar-15 16:06
+
+               Filename:   C:\Users\Andre\Google Drive\Aseita\Manipulador\Projeto MANIP - 1.0 C\Main.lst
+
+               ROM used:   1424 bytes (4%)
+                           Largest free fragment is 31340
+               RAM used:   44 (2%) at main() level
+                           44 (2%) worst case
+               Stack:     1 worst case (0 in main + 1 for interrupts)
+
+*
+0000:  GOTO   0202
+*
+0008:  MOVWF  04
+000A:  MOVFF  FD8,05
+000E:  MOVFF  FE0,06
+0012:  MOVLB  0
+0014:  MOVFF  FE9,0C
+0018:  MOVFF  FEA,07
+001C:  MOVFF  FE1,08
+0020:  MOVFF  FE2,09
+0024:  MOVFF  FD9,0A
+0028:  MOVFF  FDA,0B
+002C:  MOVFF  FF3,12
+0030:  MOVFF  FF4,13
+0034:  MOVFF  FFA,14
+0038:  MOVFF  FF5,15
+003C:  MOVFF  FF6,16
+0040:  MOVFF  FF7,17
+0044:  MOVFF  00,0E
+0048:  MOVFF  01,0F
+004C:  MOVFF  02,10
+0050:  MOVFF  03,11
+0054:  BTFSS  F9D.5
+0056:  GOTO   0060
+005A:  BTFSC  F9E.5
+005C:  GOTO   00AE
+0060:  MOVFF  0E,00
+0064:  MOVFF  0F,01
+0068:  MOVFF  10,02
+006C:  MOVFF  11,03
+0070:  MOVFF  0C,FE9
+0074:  MOVFF  07,FEA
+0078:  BSF    07.7
+007A:  MOVFF  08,FE1
+007E:  MOVFF  09,FE2
+0082:  MOVFF  0A,FD9
+0086:  MOVFF  0B,FDA
+008A:  MOVFF  12,FF3
+008E:  MOVFF  13,FF4
+0092:  MOVFF  14,FFA
+0096:  MOVFF  15,FF5
+009A:  MOVFF  16,FF6
+009E:  MOVFF  17,FF7
+00A2:  MOVF   04,W
+00A4:  MOVFF  06,FE0
+00A8:  MOVFF  05,FD8
+00AC:  RETFIE 0
+.................... #include <18F4550.h> 
+.................... //////// Standard Header file for the PIC18F4550 device //////////////// 
+.................... #device PIC18F4550 
+.................... #list 
+....................  
+.................... #device adc=8 
+....................  
+.................... /* ----------------------Bootloader----------------------------------------- */ 
+.................... /* map reset vector and interrupt vector                                     */ 
+.................... /* 0x000-0x3FF is used by the bootloader. The bootloader maps the original   */ 
+.................... /* reset vector (0x000) to 0x400 and the interrupt vector (0x008) to 0x408.  */ 
+.................... /* ------------------------------------------------------------------------- */ 
+.................... //#build (reset=0x400, interrupt=0x408) 
+.................... /* ------------------------------------------------------------------------- */ 
+.................... /* reserve boot block area                                                   */ 
+.................... /* This memory range is used by the bootloader, so the application must not  */ 
+.................... /* use this area.                                                            */ 
+.................... /* ------------------------------------------------------------------------- */ 
+.................... //#org 0, 0x3FF {} 
+....................  
+.................... #FUSES NOWDT                    //No Watch Dog Timer 
+.................... #FUSES WDT128                   //Watch Dog Timer uses 1:128 Postscale 
+.................... #FUSES PLL1                     //No PLL PreScaler 
+.................... #FUSES CPUDIV1                  //No System Clock Postscaler 
+.................... #FUSES HS                       //High speed Osc (> 4mhz for PCM/PCH) (>10mhz for PCD) 
+.................... #FUSES PUT                      //Power Up Timer 
+.................... #FUSES BROWNOUT                 //Brownout reset 
+.................... #FUSES NOMCLR                   //Master Clear pin used for I/O 
+.................... #FUSES NOLVP                    //No low voltage prgming, B3(PIC16) or B5(PIC18) used for I/O 
+.................... #FUSES NOXINST                  //Extended set extension and Indexed Addressing mode disabled (Legacy mode) 
+....................  
+.................... #use delay(clock=20000000) 
+.................... #use rs232(baud=9600,parity=N,xmit=PIN_C6,rcv=PIN_C7,bits=8,stream=PORT1) 
+....................  
+....................  
+.................... //Pinos sensores da Garra 
+.................... #define Aberta pin_a4 
+.................... #define Fechada pin_a5 
+.................... #define LedGarra pin_d0 
+.................... //Pinos enable para Pontes-H 
+.................... #define Enable_0 pin_d2 
+.................... #define Enable_1 pin_d3 
+.................... #define Enable_2 pin_e0 
+.................... #define Enable_3 pin_e1 
+.................... //Leds de Informação 
+.................... #define Led_B pin_c0               // Azul 
+.................... #define Led_G pin_c1               // Verde 
+.................... #define Led_R pin_c2               // Vermelho 
+.................... /*Pinos de acionamento de motores 
+.................... das juntas*/ 
+.................... #define Junta0E pin_b7 
+.................... #define Junta0D pin_b6 
+.................... #define Junta1E pin_b5 
+.................... #define Junta1D pin_b4 
+.................... #define Junta2E pin_b3 
+.................... #define Junta2D pin_b2 
+.................... #define Junta3E pin_b1 
+.................... #define Junta3D pin_b0 
+.................... /*Pinos de acionamento de motores 
+.................... da garra*/ 
+.................... #define GarraA pin_d7 
+.................... #define GarraF pin_d6 
+....................  
+.................... /*Variável de faixa de tolerância 
+....................    para posicionamento das juntas  
+....................    (por unidade de Bits do ADC)*/ 
+....................    unsigned int8 Range=4; 
+....................    //Variáveis auxiliares para sinalização de parada(chegada no ponto)  
+....................    int1 a=0; int1 b=0; int1 c=0; int1 d=0; int1 e=0; 
+....................    //Variável auxiliar para comunicação de parada, inicia em 1 para não enviar o sinal na primeira iteração 
+....................    int1 z=1; 
+....................    /*Variáveis para armazenamento dos valores  
+....................    dos sensores das juntas*/ 
+....................    unsigned int8 Junta0_Atual; 
+....................    unsigned int8 Junta0_Desejado; 
+....................    unsigned int8 Junta1_Atual; 
+....................    unsigned int8 Junta1_Desejado; 
+....................    unsigned int8 Junta2_Atual; 
+....................    unsigned int8 Junta2_Desejado; 
+....................    unsigned int8 Junta3_Atual; 
+....................    unsigned int8 Junta3_Desejado; 
+....................    int1 Garra_desejado=0;              // 1=Fechada, 0=Aberta 
+....................    /* Variáveis auxiliares para  
+....................    verificação de comandos em uma  
+....................    nova entrada de dados desejados*/ 
+....................    unsigned int8 Aux_0; 
+....................    unsigned int8 Aux_1; 
+....................    unsigned int8 Aux_2; 
+....................    unsigned int8 Aux_3; 
+....................  
+.................... #int_RDA //Importante Limpar o Buffer! Caso contrário o promgrama fica preso na interrupção 
+.................... void RDA(void) 
+.................... {         
+....................          output_toggle(pin_d1); 
+00AE:  BCF    F95.1
+00B0:  BTG    F8C.1
+....................          //Armazenando dados lidos do buffer em variáveis auxiliares 
+....................          Aux_0 = getc(); 
+00B2:  BTFSS  F9E.5
+00B4:  BRA    00B2
+00B6:  MOVFF  FAE,23
+....................          Aux_1 = getc(); 
+00BA:  BTFSS  F9E.5
+00BC:  BRA    00BA
+00BE:  MOVFF  FAE,24
+....................          Aux_2 = getc(); 
+00C2:  BTFSS  F9E.5
+00C4:  BRA    00C2
+00C6:  MOVFF  FAE,25
+....................          Aux_3 = getc(); 
+00CA:  BTFSS  F9E.5
+00CC:  BRA    00CA
+00CE:  MOVFF  FAE,26
+....................          //output_high(Led_R);            //Quando recebe dado aciona led na cor azul 
+....................          //output_high(Led_G); 
+....................          //output_low(Led_B); 
+....................           
+....................          a=0; b=0; c=0; d=0; e=0;   //zera todos contadores de parada 
+00D2:  BCF    1A.0
+00D4:  BCF    1A.1
+00D6:  BCF    1A.2
+00D8:  BCF    1A.3
+00DA:  BCF    1A.4
+....................          
+....................          //Testando se os novos dados colhidos são comandos espefícos 
+....................          if((char)Aux_0 == 's' && (char)Aux_1 == 't' && (char)Aux_2 == 'o' && (char)Aux_3 == 'p')        //Comando para parar acionamento 
+00DC:  MOVF   23,W
+00DE:  SUBLW  73
+00E0:  BNZ   0128
+00E2:  MOVF   24,W
+00E4:  SUBLW  74
+00E6:  BNZ   0128
+00E8:  MOVF   25,W
+00EA:  SUBLW  6F
+00EC:  BNZ   0128
+00EE:  MOVF   26,W
+00F0:  SUBLW  70
+00F2:  BNZ   0128
+....................          {   
+....................             output_low(Junta0D);output_low(Junta1D);output_low(Junta2D);output_low(Junta3D); 
+00F4:  BCF    F93.6
+00F6:  BCF    F8A.6
+00F8:  BCF    F93.4
+00FA:  BCF    F8A.4
+00FC:  BCF    F93.2
+00FE:  BCF    F8A.2
+0100:  BCF    F93.0
+0102:  BCF    F8A.0
+....................             output_low(Junta0E);output_low(Junta1E);output_low(Junta2E);output_low(Junta3E); 
+0104:  BCF    F93.7
+0106:  BCF    F8A.7
+0108:  BCF    F93.5
+010A:  BCF    F8A.5
+010C:  BCF    F93.3
+010E:  BCF    F8A.3
+0110:  BCF    F93.1
+0112:  BCF    F8A.1
+....................             Junta0_Desejado = Junta0_Atual; 
+0114:  MOVFF  1B,1C
+....................             Junta1_Desejado = Junta1_Atual; 
+0118:  MOVFF  1D,1E
+....................             Junta2_Desejado = Junta2_Atual; 
+011C:  MOVFF  1F,20
+....................             Junta3_Desejado = Junta3_Atual; 
+0120:  MOVFF  21,22
+....................             z=0; 
+0124:  BCF    1A.5
+....................          } 
+....................          //Comando para enviar dados dos sensores 
+....................          else if((char)Aux_0 == 'r' && (char)Aux_1 == 'e' && (char)Aux_2 == 'a' && (char)Aux_3 == 'd')    
+0126:  BRA    01FC
+0128:  MOVF   23,W
+012A:  SUBLW  72
+012C:  BNZ   0164
+012E:  MOVF   24,W
+0130:  SUBLW  65
+0132:  BNZ   0164
+0134:  MOVF   25,W
+0136:  SUBLW  61
+0138:  BNZ   0164
+013A:  MOVF   26,W
+013C:  SUBLW  64
+013E:  BNZ   0164
+....................          {  
+....................             printf("%c%c%c%c",Junta0_Atual,Junta1_Atual,Junta2_Atual,Junta3_Atual); 
+0140:  MOVF   1B,W
+0142:  BTFSS  F9E.4
+0144:  BRA    0142
+0146:  MOVWF  FAD
+0148:  MOVF   1D,W
+014A:  BTFSS  F9E.4
+014C:  BRA    014A
+014E:  MOVWF  FAD
+0150:  MOVF   1F,W
+0152:  BTFSS  F9E.4
+0154:  BRA    0152
+0156:  MOVWF  FAD
+0158:  MOVF   21,W
+015A:  BTFSS  F9E.4
+015C:  BRA    015A
+015E:  MOVWF  FAD
+....................             z=1; //z deve ser 1 pois após o comando "read" dados não devem ser retornados  
+0160:  BSF    1A.5
+....................          } 
+....................          //Comando para fechar garra 
+....................          else if((char)Aux_0 == 'g' && (char)Aux_1 == 'r' && (char)Aux_2 == 'a' && (char)Aux_3 == 'b')    
+0162:  BRA    01FC
+0164:  MOVF   23,W
+0166:  SUBLW  67
+0168:  BNZ   0182
+016A:  MOVF   24,W
+016C:  SUBLW  72
+016E:  BNZ   0182
+0170:  MOVF   25,W
+0172:  SUBLW  61
+0174:  BNZ   0182
+0176:  MOVF   26,W
+0178:  SUBLW  62
+017A:  BNZ   0182
+....................          {  
+....................             Garra_desejado=1; 
+017C:  BSF    1A.6
+....................             z=0; //Zera contador (novo acionamento) 
+017E:  BCF    1A.5
+....................          } 
+....................          //Comando para abrir garra 
+....................          else if((char)Aux_0 == 'd' && (char)Aux_1 == 'r' && (char)Aux_2 == 'o' && (char)Aux_3 == 'p')   
+0180:  BRA    01FC
+0182:  MOVF   23,W
+0184:  SUBLW  64
+0186:  BNZ   01A0
+0188:  MOVF   24,W
+018A:  SUBLW  72
+018C:  BNZ   01A0
+018E:  MOVF   25,W
+0190:  SUBLW  6F
+0192:  BNZ   01A0
+0194:  MOVF   26,W
+0196:  SUBLW  70
+0198:  BNZ   01A0
+....................          { 
+....................             Garra_desejado=0; 
+019A:  BCF    1A.6
+....................             z=0; //Zera contador (novo acionamento) 
+019C:  BCF    1A.5
+....................          } 
+....................          //Comando para ligar/desligar lanterna led 
+....................          else if((char)Aux_0 == 'l' && (char)Aux_1 == 'u' && (char)Aux_2 == 'z' && (char)Aux_3 == '!')   
+019E:  BRA    01FC
+01A0:  MOVF   23,W
+01A2:  SUBLW  6C
+01A4:  BNZ   01C0
+01A6:  MOVF   24,W
+01A8:  SUBLW  75
+01AA:  BNZ   01C0
+01AC:  MOVF   25,W
+01AE:  SUBLW  7A
+01B0:  BNZ   01C0
+01B2:  MOVF   26,W
+01B4:  SUBLW  21
+01B6:  BNZ   01C0
+....................          { 
+....................             output_toggle(LedGarra); 
+01B8:  BCF    F95.0
+01BA:  BTG    F8C.0
+....................             z=1; //z deve ser 1 pois após o comando "read" dados não devem ser retornados  
+01BC:  BSF    1A.5
+....................          } 
+....................          //Comando para posição de repouso 
+....................          else if((char)Aux_0 == 's' && (char)Aux_1 == 't' && (char)Aux_2 == 'n' && (char)Aux_3 == 'd')    
+01BE:  BRA    01FC
+01C0:  MOVF   23,W
+01C2:  SUBLW  73
+01C4:  BNZ   01EA
+01C6:  MOVF   24,W
+01C8:  SUBLW  74
+01CA:  BNZ   01EA
+01CC:  MOVF   25,W
+01CE:  SUBLW  6E
+01D0:  BNZ   01EA
+01D2:  MOVF   26,W
+01D4:  SUBLW  64
+01D6:  BNZ   01EA
+....................          { 
+....................             Junta0_Desejado = 127; 
+01D8:  MOVLW  7F
+01DA:  MOVWF  1C
+....................             Junta1_Desejado = 127; 
+01DC:  MOVWF  1E
+....................             Junta2_Desejado = 110; 
+01DE:  MOVLW  6E
+01E0:  MOVWF  20
+....................             Junta3_Desejado = 127; 
+01E2:  MOVLW  7F
+01E4:  MOVWF  22
+....................             z=0; //Zera contador (novo acionamento) 
+01E6:  BCF    1A.5
+....................          } 
+....................          /*Se não são comandos, serão dados de novas posições desejadas: 
+....................          Limita extremo inferior** 
+....................          Limita extremo superior** 
+....................          Atribui nova posição desejada */ 
+....................          else                                                              
+01E8:  BRA    01FC
+....................          { 
+....................             z=0; //Zera contador (novo acionamento) 
+01EA:  BCF    1A.5
+....................             //if (Aux_0 < 50) Junta0_Desejado = 50;            
+....................             //else if (Aux_0 > 190) Junta0_Desejado = 190;     
+....................             //else  
+....................             Junta0_Desejado = Aux_0; 
+01EC:  MOVFF  23,1C
+....................             //if (Aux_1 < 25) Junta1_Desejado = 25;            
+....................             //else if (Aux_1 > 195) Junta1_Desejado = 195; 
+....................             //else  
+....................             Junta1_Desejado = Aux_1; 
+01F0:  MOVFF  24,1E
+....................             //if (Aux_2 < 40) Junta2_Desejado = 40; 
+....................             //else if (Aux_2 > 250) Junta2_Desejado = 250; 
+....................             //else  
+....................             Junta2_Desejado = Aux_2; 
+01F4:  MOVFF  25,20
+....................             //if (Aux_3 < 70) Junta3_Desejado = 70; 
+....................             //else if (Aux_3 > 190) Junta3_Desejado = 190; 
+....................             //else  
+....................             Junta3_Desejado = Aux_3; 
+01F8:  MOVFF  26,22
+....................          } 
+.................... } 
+....................  
+....................  
+01FC:  BCF    F9E.5
+01FE:  GOTO   0060
+.................... void main () 
+.................... {   
+0202:  CLRF   FF8
+0204:  BCF    FD0.7
+0206:  BSF    07.7
+0208:  CLRF   FEA
+020A:  CLRF   FE9
+020C:  BSF    FB8.3
+020E:  MOVLW  08
+0210:  MOVWF  FAF
+0212:  MOVLW  02
+0214:  MOVWF  FB0
+0216:  MOVLW  A6
+0218:  MOVWF  FAC
+021A:  MOVLW  90
+021C:  MOVWF  FAB
+021E:  MOVLW  04
+0220:  MOVWF  19
+0222:  BCF    1A.0
+0224:  BCF    1A.1
+0226:  BCF    1A.2
+0228:  BCF    1A.3
+022A:  BCF    1A.4
+022C:  BSF    1A.5
+022E:  BCF    1A.6
+0230:  MOVF   FC1,W
+0232:  ANDLW  C0
+0234:  IORLW  0F
+0236:  MOVWF  FC1
+0238:  MOVLW  07
+023A:  MOVWF  FB4
+....................    //Habilitando interrupções 
+....................    enable_interrupts(INT_RDA); 
+023C:  BSF    F9D.5
+....................    enable_interrupts(GLOBAL); 
+023E:  MOVLW  C0
+0240:  IORWF  FF2,F
+....................    /*Setando portas de leitura  
+....................    analógica*/ 
+....................    SETUP_ADC_PORTS(AN0_TO_AN3); 
+0242:  MOVF   FC1,W
+0244:  ANDLW  C0
+0246:  IORLW  0B
+0248:  MOVWF  FC1
+....................    SETUP_ADC(ADC_CLOCK_INTERNAL); 
+024A:  MOVF   FC0,W
+024C:  ANDLW  C0
+024E:  IORLW  07
+0250:  MOVWF  FC0
+0252:  BCF    FC0.7
+0254:  BSF    FC2.0
+....................    delay_us(20); 
+0256:  MOVLW  20
+0258:  MOVWF  00
+025A:  DECFSZ 00,F
+025C:  BRA    025A
+025E:  BRA    0260
+0260:  NOP   
+....................    //Setando pinos como entradas digitais 
+....................    output_float(Aberta); 
+0262:  BSF    F92.4
+....................    output_float(Fechada); 
+0264:  BSF    F92.5
+....................     
+....................    //Setando Led na cor amarela 
+....................    output_low(Led_R); 
+0266:  BCF    F94.2
+0268:  BCF    F8B.2
+....................    output_low(Led_G); 
+026A:  BCF    F94.1
+026C:  BCF    F8B.1
+....................    output_high(Led_B); 
+026E:  BCF    F94.0
+0270:  BSF    F8B.0
+....................    //reseta enable's 
+....................    output_low(Enable_0); 
+0272:  BCF    F95.2
+0274:  BCF    F8C.2
+....................    output_low(Enable_1); 
+0276:  BCF    F95.3
+0278:  BCF    F8C.3
+....................    output_low(Enable_2); 
+027A:  BCF    F96.0
+027C:  BCF    F8D.0
+....................    output_low(Enable_3); 
+027E:  BCF    F96.1
+0280:  BCF    F8D.1
+....................    //Setando Porto de motores como desligado 
+....................    output_low(Junta0E); 
+0282:  BCF    F93.7
+0284:  BCF    F8A.7
+....................    output_low(Junta0D); 
+0286:  BCF    F93.6
+0288:  BCF    F8A.6
+....................    output_low(Junta1E); 
+028A:  BCF    F93.5
+028C:  BCF    F8A.5
+....................    output_low(Junta1D); 
+028E:  BCF    F93.4
+0290:  BCF    F8A.4
+....................    output_low(Junta2E); 
+0292:  BCF    F93.3
+0294:  BCF    F8A.3
+....................    output_low(Junta2D); 
+0296:  BCF    F93.2
+0298:  BCF    F8A.2
+....................    output_low(Junta3E); 
+029A:  BCF    F93.1
+029C:  BCF    F8A.1
+....................    output_low(Junta3D); 
+029E:  BCF    F93.0
+02A0:  BCF    F8A.0
+....................    output_low(GarraF); 
+02A2:  BCF    F95.6
+02A4:  BCF    F8C.6
+....................    output_low(GarraA); 
+02A6:  BCF    F95.7
+02A8:  BCF    F8C.7
+....................    //Setando led da garra como desligado  
+....................    output_low(LedGarra); 
+02AA:  BCF    F95.0
+02AC:  BCF    F8C.0
+....................    /*Atribuindo os valores desejados para as juntas  
+....................    como os valores obtidos pela leitura do ADC. 
+....................    Isto é feito para que, durante a primeira iteração, 
+....................    os valores desejados para as juntas sejam válidos (e não um lixo). 
+....................    Uma possibilidade seria definir esses valores iniciais como parâmetros, 
+....................    assim toda vez que o sistema fosse iniciado, como primeira tarefa,  
+....................    o braço iria para uma posição inicial determinada por esses parâmetros*/ 
+....................    set_adc_channel(0); 
+02AE:  MOVLW  00
+02B0:  MOVWF  01
+02B2:  MOVF   FC2,W
+02B4:  ANDLW  C3
+02B6:  IORWF  01,W
+02B8:  MOVWF  FC2
+....................    delay_us(20); 
+02BA:  MOVLW  20
+02BC:  MOVWF  00
+02BE:  DECFSZ 00,F
+02C0:  BRA    02BE
+02C2:  BRA    02C4
+02C4:  NOP   
+....................    Junta0_Desejado = read_adc(); 
+02C6:  BSF    FC2.1
+02C8:  BTFSC  FC2.1
+02CA:  BRA    02C8
+02CC:  MOVFF  FC4,1C
+....................    delay_us(20); 
+02D0:  MOVLW  20
+02D2:  MOVWF  00
+02D4:  DECFSZ 00,F
+02D6:  BRA    02D4
+02D8:  BRA    02DA
+02DA:  NOP   
+....................     
+....................    set_adc_channel(1); 
+02DC:  MOVLW  04
+02DE:  MOVWF  01
+02E0:  MOVF   FC2,W
+02E2:  ANDLW  C3
+02E4:  IORWF  01,W
+02E6:  MOVWF  FC2
+....................    delay_us(20); 
+02E8:  MOVLW  20
+02EA:  MOVWF  00
+02EC:  DECFSZ 00,F
+02EE:  BRA    02EC
+02F0:  BRA    02F2
+02F2:  NOP   
+....................    Junta1_Desejado = read_adc(); 
+02F4:  BSF    FC2.1
+02F6:  BTFSC  FC2.1
+02F8:  BRA    02F6
+02FA:  MOVFF  FC4,1E
+....................    delay_us(20); 
+02FE:  MOVLW  20
+0300:  MOVWF  00
+0302:  DECFSZ 00,F
+0304:  BRA    0302
+0306:  BRA    0308
+0308:  NOP   
+....................     
+....................    set_adc_channel(2); 
+030A:  MOVLW  08
+030C:  MOVWF  01
+030E:  MOVF   FC2,W
+0310:  ANDLW  C3
+0312:  IORWF  01,W
+0314:  MOVWF  FC2
+....................    delay_us(20); 
+0316:  MOVLW  20
+0318:  MOVWF  00
+031A:  DECFSZ 00,F
+031C:  BRA    031A
+031E:  BRA    0320
+0320:  NOP   
+....................    Junta2_Desejado = read_adc(); 
+0322:  BSF    FC2.1
+0324:  BTFSC  FC2.1
+0326:  BRA    0324
+0328:  MOVFF  FC4,20
+....................    delay_us(20); 
+032C:  MOVLW  20
+032E:  MOVWF  00
+0330:  DECFSZ 00,F
+0332:  BRA    0330
+0334:  BRA    0336
+0336:  NOP   
+....................     
+....................    set_adc_channel(3); 
+0338:  MOVLW  0C
+033A:  MOVWF  01
+033C:  MOVF   FC2,W
+033E:  ANDLW  C3
+0340:  IORWF  01,W
+0342:  MOVWF  FC2
+....................    delay_us(20); 
+0344:  MOVLW  20
+0346:  MOVWF  00
+0348:  DECFSZ 00,F
+034A:  BRA    0348
+034C:  BRA    034E
+034E:  NOP   
+....................    Junta3_Desejado = read_adc(); 
+0350:  BSF    FC2.1
+0352:  BTFSC  FC2.1
+0354:  BRA    0352
+0356:  MOVFF  FC4,22
+....................    delay_us(20); 
+035A:  MOVLW  20
+035C:  MOVWF  00
+035E:  DECFSZ 00,F
+0360:  BRA    035E
+0362:  BRA    0364
+0364:  NOP   
+....................     
+....................    while(true) 
+....................    { 
+....................       ////Acionamento do Motor 0 
+....................       // Leitura dos sensores da junta 0 
+....................       set_adc_channel(0); 
+0366:  MOVLW  00
+0368:  MOVWF  01
+036A:  MOVF   FC2,W
+036C:  ANDLW  C3
+036E:  IORWF  01,W
+0370:  MOVWF  FC2
+....................       delay_us(20); 
+0372:  MOVLW  20
+0374:  MOVWF  00
+0376:  DECFSZ 00,F
+0378:  BRA    0376
+037A:  BRA    037C
+037C:  NOP   
+....................       Junta0_Atual = read_adc(); 
+037E:  BSF    FC2.1
+0380:  BTFSC  FC2.1
+0382:  BRA    0380
+0384:  MOVFF  FC4,1B
+....................       delay_us(20); 
+0388:  MOVLW  20
+038A:  MOVWF  00
+038C:  DECFSZ 00,F
+038E:  BRA    038C
+0390:  BRA    0392
+0392:  NOP   
+....................        
+....................       if (Junta0_Desejado < Junta0_Atual-Range || Junta0_Desejado > Junta0_Atual+Range)  //Fora do range 
+0394:  MOVF   19,W
+0396:  SUBWF  1B,W
+0398:  SUBWF  1C,W
+039A:  BNC   03A6
+039C:  MOVF   19,W
+039E:  ADDWF  1B,W
+03A0:  SUBWF  1C,W
+03A2:  BZ    03C6
+03A4:  BNC   03C6
+....................       { 
+....................          //Seta enable (Provisório -> até que sejam usados PWMs) 
+....................          output_high(Enable_0); 
+03A6:  BCF    F95.2
+03A8:  BSF    F8C.2
+....................           
+....................          if(Junta0_Desejado < Junta0_Atual-Range)  //Depois do valor desejado 
+03AA:  MOVF   19,W
+03AC:  SUBWF  1B,W
+03AE:  SUBWF  1C,W
+03B0:  BC    03BC
+....................          {  
+....................             output_high(Junta0E);  
+03B2:  BCF    F93.7
+03B4:  BSF    F8A.7
+....................             output_low(Junta0D); 
+03B6:  BCF    F93.6
+03B8:  BCF    F8A.6
+....................          } 
+....................          else  //Antes do Valor desejado  
+03BA:  BRA    03C4
+....................          {  
+....................             output_high(Junta0D);  
+03BC:  BCF    F93.6
+03BE:  BSF    F8A.6
+....................             output_low(Junta0E); 
+03C0:  BCF    F93.7
+03C2:  BCF    F8A.7
+....................          } 
+....................       } 
+....................       else  //Dentro do range 
+03C4:  BRA    03D6
+....................       { 
+....................          //Reseta enable 
+....................          output_low(Enable_0); 
+03C6:  BCF    F95.2
+03C8:  BCF    F8C.2
+....................           
+....................          output_low(Junta0D);  
+03CA:  BCF    F93.6
+03CC:  BCF    F8A.6
+....................          output_low(Junta0E);  
+03CE:  BCF    F93.7
+03D0:  BCF    F8A.7
+....................          if (a==0) a=1;  //Contador de parada 
+03D2:  BTFSS  1A.0
+03D4:  BSF    1A.0
+....................       } 
+....................        
+....................       ////Acionamento do Motor 1 
+....................       // Leitura dos sensores da junta 1 
+....................       set_adc_channel(1); 
+03D6:  MOVLW  04
+03D8:  MOVWF  01
+03DA:  MOVF   FC2,W
+03DC:  ANDLW  C3
+03DE:  IORWF  01,W
+03E0:  MOVWF  FC2
+....................       delay_us(20); 
+03E2:  MOVLW  20
+03E4:  MOVWF  00
+03E6:  DECFSZ 00,F
+03E8:  BRA    03E6
+03EA:  BRA    03EC
+03EC:  NOP   
+....................       Junta1_Atual = read_adc(); 
+03EE:  BSF    FC2.1
+03F0:  BTFSC  FC2.1
+03F2:  BRA    03F0
+03F4:  MOVFF  FC4,1D
+....................       delay_us(20); 
+03F8:  MOVLW  20
+03FA:  MOVWF  00
+03FC:  DECFSZ 00,F
+03FE:  BRA    03FC
+0400:  BRA    0402
+0402:  NOP   
+....................        
+....................       if (Junta1_Desejado < Junta1_Atual-Range || Junta1_Desejado > Junta1_Atual+Range)   //Fora do range 
+0404:  MOVF   19,W
+0406:  SUBWF  1D,W
+0408:  SUBWF  1E,W
+040A:  BNC   0416
+040C:  MOVF   19,W
+040E:  ADDWF  1D,W
+0410:  SUBWF  1E,W
+0412:  BZ    0436
+0414:  BNC   0436
+....................       { 
+....................          //Seta enable (Provisório -> até que sejam usados PWMs) 
+....................          output_high(Enable_1); 
+0416:  BCF    F95.3
+0418:  BSF    F8C.3
+....................           
+....................          if(Junta1_Desejado < Junta1_Atual-Range)  //Depois do valor desejado 
+041A:  MOVF   19,W
+041C:  SUBWF  1D,W
+041E:  SUBWF  1E,W
+0420:  BC    042C
+....................          {  
+....................             output_high(Junta1E);  
+0422:  BCF    F93.5
+0424:  BSF    F8A.5
+....................             output_low(Junta1D); 
+0426:  BCF    F93.4
+0428:  BCF    F8A.4
+....................          } 
+....................          else  //Antes do valor desejado 
+042A:  BRA    0434
+....................          {  
+....................             output_high(Junta1D);  
+042C:  BCF    F93.4
+042E:  BSF    F8A.4
+....................             output_low(Junta1E); 
+0430:  BCF    F93.5
+0432:  BCF    F8A.5
+....................          } 
+....................       } 
+....................       else  //Dentro do range  
+0434:  BRA    0446
+....................       {  
+....................          //Reseta enable 
+....................          output_low(Enable_1); 
+0436:  BCF    F95.3
+0438:  BCF    F8C.3
+....................           
+....................          output_low(Junta1D);  
+043A:  BCF    F93.4
+043C:  BCF    F8A.4
+....................          output_low(Junta1E); 
+043E:  BCF    F93.5
+0440:  BCF    F8A.5
+....................          if (b==0) b=1;  //Contador de parada  
+0442:  BTFSS  1A.1
+0444:  BSF    1A.1
+....................       } 
+....................        
+....................       ////Acionamento do Motor 2 
+....................       // Leitura dos sensores da junta 2 
+....................       set_adc_channel(2); 
+0446:  MOVLW  08
+0448:  MOVWF  01
+044A:  MOVF   FC2,W
+044C:  ANDLW  C3
+044E:  IORWF  01,W
+0450:  MOVWF  FC2
+....................       delay_us(20); 
+0452:  MOVLW  20
+0454:  MOVWF  00
+0456:  DECFSZ 00,F
+0458:  BRA    0456
+045A:  BRA    045C
+045C:  NOP   
+....................       Junta2_Atual = read_adc(); 
+045E:  BSF    FC2.1
+0460:  BTFSC  FC2.1
+0462:  BRA    0460
+0464:  MOVFF  FC4,1F
+....................       delay_us(20); 
+0468:  MOVLW  20
+046A:  MOVWF  00
+046C:  DECFSZ 00,F
+046E:  BRA    046C
+0470:  BRA    0472
+0472:  NOP   
+....................        
+....................       if (Junta2_Desejado < Junta2_Atual-Range || Junta2_Desejado > Junta2_Atual+Range)  //Fora do range 
+0474:  MOVF   19,W
+0476:  SUBWF  1F,W
+0478:  SUBWF  20,W
+047A:  BNC   0486
+047C:  MOVF   19,W
+047E:  ADDWF  1F,W
+0480:  SUBWF  20,W
+0482:  BZ    04A6
+0484:  BNC   04A6
+....................       { 
+....................          //Seta enable (Provisório -> até que sejam usados PWMs) 
+....................          output_high(Enable_2); 
+0486:  BCF    F96.0
+0488:  BSF    F8D.0
+....................           
+....................          if(Junta2_Desejado < Junta2_Atual-Range)  //Depois do valor desejado  
+048A:  MOVF   19,W
+048C:  SUBWF  1F,W
+048E:  SUBWF  20,W
+0490:  BC    049C
+....................          {  
+....................             output_high(Junta2E);  
+0492:  BCF    F93.3
+0494:  BSF    F8A.3
+....................             output_low(Junta2D); 
+0496:  BCF    F93.2
+0498:  BCF    F8A.2
+....................          } 
+....................          else  //Antes do valor desejado  
+049A:  BRA    04A4
+....................          {  
+....................             output_high(Junta2D);  
+049C:  BCF    F93.2
+049E:  BSF    F8A.2
+....................             output_low(Junta2E); 
+04A0:  BCF    F93.3
+04A2:  BCF    F8A.3
+....................          } 
+....................       } 
+....................       else  //Dentro do range  
+04A4:  BRA    04B6
+....................       {   
+....................          //Reseta enable 
+....................          output_low(Enable_2); 
+04A6:  BCF    F96.0
+04A8:  BCF    F8D.0
+....................           
+....................          output_low(Junta2D);  
+04AA:  BCF    F93.2
+04AC:  BCF    F8A.2
+....................          output_low(Junta2E);  
+04AE:  BCF    F93.3
+04B0:  BCF    F8A.3
+....................          if (c==0) c=1; //Contador de parada 
+04B2:  BTFSS  1A.2
+04B4:  BSF    1A.2
+....................       } 
+....................        
+....................       ////Acionamento do Motor 3 
+....................       // Leitura dos sensores da junta 3 
+....................       set_adc_channel(3); 
+04B6:  MOVLW  0C
+04B8:  MOVWF  01
+04BA:  MOVF   FC2,W
+04BC:  ANDLW  C3
+04BE:  IORWF  01,W
+04C0:  MOVWF  FC2
+....................       delay_us(20); 
+04C2:  MOVLW  20
+04C4:  MOVWF  00
+04C6:  DECFSZ 00,F
+04C8:  BRA    04C6
+04CA:  BRA    04CC
+04CC:  NOP   
+....................       Junta3_Atual = read_adc(); 
+04CE:  BSF    FC2.1
+04D0:  BTFSC  FC2.1
+04D2:  BRA    04D0
+04D4:  MOVFF  FC4,21
+....................       delay_us(20); 
+04D8:  MOVLW  20
+04DA:  MOVWF  00
+04DC:  DECFSZ 00,F
+04DE:  BRA    04DC
+04E0:  BRA    04E2
+04E2:  NOP   
+....................        
+....................       if (Junta3_Desejado < Junta3_Atual-Range || Junta3_Desejado > Junta3_Atual+Range)  //Fora do range 
+04E4:  MOVF   19,W
+04E6:  SUBWF  21,W
+04E8:  SUBWF  22,W
+04EA:  BNC   04F6
+04EC:  MOVF   19,W
+04EE:  ADDWF  21,W
+04F0:  SUBWF  22,W
+04F2:  BZ    0516
+04F4:  BNC   0516
+....................       { 
+....................          //Seta enable (Provisório -> até que sejam usados PWMs) 
+....................          output_high(Enable_3); 
+04F6:  BCF    F96.1
+04F8:  BSF    F8D.1
+....................           
+....................          if(Junta3_Desejado < Junta3_Atual-Range)  //Depois do valor desejado  
+04FA:  MOVF   19,W
+04FC:  SUBWF  21,W
+04FE:  SUBWF  22,W
+0500:  BC    050C
+....................          {  
+....................             output_high(Junta3E); 
+0502:  BCF    F93.1
+0504:  BSF    F8A.1
+....................             output_low(Junta3D); 
+0506:  BCF    F93.0
+0508:  BCF    F8A.0
+....................          } 
+....................          else  //Antes do valor desejado  
+050A:  BRA    0514
+....................          {  
+....................             output_high(Junta3D);  
+050C:  BCF    F93.0
+050E:  BSF    F8A.0
+....................             output_low(Junta3E); 
+0510:  BCF    F93.1
+0512:  BCF    F8A.1
+....................          } 
+....................       } 
+....................       else  //Dentro do range  
+0514:  BRA    0526
+....................       {  
+....................          //Reseta enable 
+....................          output_low(Enable_3); 
+0516:  BCF    F96.1
+0518:  BCF    F8D.1
+....................           
+....................          output_low(Junta3D);  
+051A:  BCF    F93.0
+051C:  BCF    F8A.0
+....................          output_low(Junta3E);  
+051E:  BCF    F93.1
+0520:  BCF    F8A.1
+....................          if (d==0) d=1;  //Contador de parada  
+0522:  BTFSS  1A.3
+0524:  BSF    1A.3
+....................       } 
+....................        
+....................       ////Acionamento da Garra 
+....................       if (Garra_desejado==1 && input(Fechada)!=0)   //Quer fechar mas ainda não fechou 
+0526:  BTFSS  1A.6
+0528:  BRA    053A
+052A:  BSF    F92.5
+052C:  BTFSS  F80.5
+052E:  BRA    053A
+....................       { 
+....................          output_high (GarraF); 
+0530:  BCF    F95.6
+0532:  BSF    F8C.6
+....................          output_low (GarraA); 
+0534:  BCF    F95.7
+0536:  BCF    F8C.7
+....................       } 
+....................       else if (Garra_desejado==0 && input(Aberta)!=0)   //Quer abrir mas ainda não abriu 
+0538:  BRA    0558
+053A:  BTFSC  1A.6
+053C:  BRA    054E
+053E:  BSF    F92.4
+0540:  BTFSS  F80.4
+0542:  BRA    054E
+....................       { 
+....................          output_high (GarraA); 
+0544:  BCF    F95.7
+0546:  BSF    F8C.7
+....................          output_low (GarraF); 
+0548:  BCF    F95.6
+054A:  BCF    F8C.6
+....................       } 
+....................       else  //Não quer fechar nem abrir 
+054C:  BRA    0558
+....................       { 
+....................          output_low (GarraF); 
+054E:  BCF    F95.6
+0550:  BCF    F8C.6
+....................          output_low (GarraA); 
+0552:  BCF    F95.7
+0554:  BCF    F8C.7
+....................          e=1;  //Contador de parada 
+0556:  BSF    1A.4
+....................       } 
+....................        
+....................       //Comunicação e sinalização de parada 
+....................       if (a==1 && b==1 && c==1 && d==1 && e==1)  //Todos os sensores já chegaram  
+0558:  BTFSS  1A.0
+055A:  BRA    0572
+055C:  BTFSS  1A.1
+055E:  BRA    0572
+0560:  BTFSS  1A.2
+0562:  BRA    0572
+0564:  BTFSS  1A.3
+0566:  BRA    0572
+0568:  BTFSS  1A.4
+056A:  BRA    0572
+....................       { 
+....................          if(z==0)                // O 'z' somente será zero quando um novo dado chegar no buffer  
+056C:  BTFSC  1A.5
+056E:  BRA    0572
+....................          {                      //e este for um dado de posicionamento 
+....................             //printf("OK"); 
+....................             z=1; 
+0570:  BSF    1A.5
+....................          } 
+....................       } 
+....................        
+....................       if (z==0) 
+0572:  BTFSC  1A.5
+0574:  BRA    0584
+....................       { 
+....................          output_low(Led_R);            //Aciona led na cor vermelha 
+0576:  BCF    F94.2
+0578:  BCF    F8B.2
+....................          output_high(Led_G); 
+057A:  BCF    F94.1
+057C:  BSF    F8B.1
+....................          output_high(Led_B); 
+057E:  BCF    F94.0
+0580:  BSF    F8B.0
+....................       } 
+....................       else 
+0582:  BRA    0590
+....................       { 
+....................          output_high(Led_R);            //Aciona led na cor verde 
+0584:  BCF    F94.2
+0586:  BSF    F8B.2
+....................          output_low(Led_G); 
+0588:  BCF    F94.1
+058A:  BCF    F8B.1
+....................          output_high(Led_B); 
+058C:  BCF    F94.0
+058E:  BSF    F8B.0
+....................       } 
+....................    } 
+0590:  BRA    0366
+.................... } 
+0592:  SLEEP 
+
+Configuration Fuses:
+   Word  1: CC20   PLL1 CPUDIV1 USBDIV HS FCMEN IESO
+   Word  2: 0E3E   PUT BROWNOUT BORV21 VREGEN NOWDT WDT128
+   Word  3: 0700   CCP2C1 PBADEN LPT1OSC NOMCLR
+   Word  4: 00A1   STVREN NOLVP ICSP2 NOXINST NODEBUG
+   Word  5: C00F   NOPROTECT NOCPB NOCPD
+   Word  6: E00F   NOWRT NOWRTC NOWRTB NOWRTD
+   Word  7: 400F   NOEBTR NOEBTRB

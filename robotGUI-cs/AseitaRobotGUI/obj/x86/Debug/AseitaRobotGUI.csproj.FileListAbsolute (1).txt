@@ -1,0 +1,15 @@
+C:\Users\Andre\AppData\Local\Temporary Projects\AseitaRobotGUI\bin\Debug\AseitaRobotGUI.exe
+C:\Users\Andre\AppData\Local\Temporary Projects\AseitaRobotGUI\bin\Debug\AseitaRobotGUI.pdb
+C:\Users\Andre\AppData\Local\Temporary Projects\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.Form1.resources
+C:\Users\Andre\AppData\Local\Temporary Projects\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.Properties.Resources.resources
+C:\Users\Andre\AppData\Local\Temporary Projects\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.csproj.GenerateResource.Cache
+C:\Users\Andre\AppData\Local\Temporary Projects\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.exe
+C:\Users\Andre\AppData\Local\Temporary Projects\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.pdb
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.exe
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.pdb
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\bin\Debug\AseitaRobotGUI.exe
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\bin\Debug\AseitaRobotGUI.pdb
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.Form1.resources
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.Properties.Resources.resources
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.csproj.GenerateResource.Cache
+C:\Users\Andre\Google Drive\Aseita\AseitaRobotGUI\AseitaRobotGUI\obj\x86\Debug\AseitaRobotGUI.csprojResolveAssemblyReference.cache
